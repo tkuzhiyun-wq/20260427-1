@@ -34,6 +34,10 @@
     let bubbles = []; // 儲存水泡物件
     let frameCount = 0;
 
+    // 用於跟隨移動的座標狀態
+    let currentX = window.innerWidth / 4; 
+    let currentY = window.innerHeight / 4;
+
     /**
      * 水泡類別
      */
@@ -135,13 +139,44 @@
         const imgWidth = canvas.width * 0.5;
         const imgHeight = canvas.height * 0.5;
 
-        // 3. 計算居中位置
-        const x = (canvas.width - imgWidth) / 2;
-        const y = (canvas.height - imgHeight) / 2;
+        // 3. 計算手部中心點，讓畫面跟隨手部
+        let targetX = (canvas.width - imgWidth) / 2;
+        let targetY = (canvas.height - imgHeight) / 2;
+
+        if (handResults && handResults.multiHandLandmarks && handResults.multiHandLandmarks.length > 0) {
+            let sumX = 0;
+            let sumY = 0;
+            let pointCount = 0;
+
+            // 計算所有偵測到的手部關鍵點平均值
+            handResults.multiHandLandmarks.forEach(landmarks => {
+                landmarks.forEach(p => {
+                    sumX += p.x;
+                    sumY += p.y;
+                    pointCount++;
+                });
+            });
+
+            const avgX = sumX / pointCount;
+            const avgY = sumY / pointCount;
+
+            // 將視訊畫面的中心對準手部平均位置 (這裡使用了鏡像修正 1-avgX)
+            targetX = (canvas.width * (1 - avgX)) - (imgWidth / 2);
+            targetY = (canvas.height * avgY) - (imgHeight / 2);
+        }
+
+        // 平滑移動 (插值動畫)
+        currentX += (targetX - currentX) * 0.1;
+        currentY += (targetY - currentY) * 0.1;
 
         // 4. 繪製影像
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            ctx.drawImage(video, x, y, imgWidth, imgHeight);
+            ctx.save();
+            // 因為要跟隨移動，如果想要更好的效果可以加上鏡像反轉
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, canvas.width - currentX - imgWidth, currentY, imgWidth, imgHeight);
+            ctx.restore();
 
             // 5. 繪製手部關鍵點連線
             if (handResults && handResults.multiHandLandmarks) {
@@ -162,7 +197,8 @@
                     if (frameCount % 10 === 0) {
                         [4, 8, 12, 16, 20].forEach(idx => {
                             const p = landmarks[idx];
-                            bubbles.push(new Bubble(x + p.x * imgWidth, y + p.y * imgHeight));
+                            // 注意：影像有做鏡像處理，水泡座標也要對應
+                            bubbles.push(new Bubble(currentX + (1 - p.x) * imgWidth, currentY + p.y * imgHeight));
                         });
                     }
 
@@ -171,8 +207,8 @@
                         ctx.beginPath();
                         path.forEach((index, i) => {
                             const point = landmarks[index];
-                            const px = x + point.x * imgWidth;
-                            const py = y + point.y * imgHeight;
+                            const px = currentX + (1 - point.x) * imgWidth;
+                            const py = currentY + point.y * imgHeight;
                             if (i === 0) ctx.moveTo(px, py);
                             else ctx.lineTo(px, py);
                         });
@@ -183,7 +219,7 @@
                     ctx.fillStyle = '#ff006e';
                     for (const point of landmarks) {
                         ctx.beginPath();
-                        ctx.arc(x + point.x * imgWidth, y + point.y * imgHeight, 5, 0, Math.PI * 2);
+                        ctx.arc(currentX + (1 - point.x) * imgWidth, currentY + point.y * imgHeight, 5, 0, Math.PI * 2);
                         ctx.fill();
                     }
                 }

@@ -57,15 +57,18 @@
         }
         update() {
             this.y -= this.speed;
+            // 當上升超過 popDistance 時，水泡開始「破掉」 (快速變大並消失)
             if (this.startY - this.y > this.popDistance) {
-                this.opacity -= 0.1; // 開始破掉（消失）
+                this.opacity -= 0.15;
+                this.radius += 2; 
             }
         }
         draw(ctx) {
+            if (this.opacity <= 0) return;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
             ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity})`;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
             // 水泡反光效果
             ctx.beginPath();
@@ -143,7 +146,7 @@
         const imgWidth = canvas.width * 0.5;
         const imgHeight = canvas.height * 0.5;
 
-        // 3. 計算手部中心點，讓畫面跟隨手部
+        // 3. 計算跟隨目標位置
         let targetX = (canvas.width - imgWidth) / 2;
         let targetY = (canvas.height - imgHeight) / 2;
 
@@ -184,31 +187,26 @@
             ctx.drawImage(video, 0, 0, imgWidth, imgHeight);
             ctx.restore();
 
-            // 5. 繪製手部關鍵點連線
+            // 5. 繪製手部內容
             if (handResults && handResults.multiHandLandmarks) {
-                const connections = [
-                    [0, 1, 2, 3, 4],    // 大拇指
-                    [5, 6, 7, 8],       // 食指
-                    [9, 10, 11, 12],    // 中指
-                    [13, 14, 15, 16],   // 無名指
-                    [17, 18, 19, 20]    // 小拇指
-                ];
-
-                ctx.strokeStyle = '#7209b7'; 
-                ctx.lineWidth = 4;
-                ctx.lineCap = 'round';
-
                 for (const landmarks of handResults.multiHandLandmarks) {
-                    // 在指尖產生水泡 (4, 8, 12, 16, 20)
-                    if (frameCount % 10 === 0) {
+                    // A. 在指尖產生水泡 (4, 8, 12, 16, 20)
+                    if (frameCount % 5 === 0) { // 稍微加快產生頻率
                         [4, 8, 12, 16, 20].forEach(idx => {
                             const p = landmarks[idx];
-                            // 注意：影像有做鏡像處理，水泡座標也要對應
                             bubbles.push(new Bubble(currentX + (1 - p.x) * imgWidth, currentY + p.y * imgHeight));
                         });
                     }
 
-                    // 繪製骨架線條
+                    // B. 繪製骨架連線 (0-4, 5-8, 9-12, 13-16, 17-20)
+                    const connections = [
+                        [0, 1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], 
+                        [13, 14, 15, 16], [17, 18, 19, 20]
+                    ];
+                    ctx.strokeStyle = '#7209b7'; 
+                    ctx.lineWidth = 3;
+                    ctx.lineCap = 'round';
+
                     connections.forEach(path => {
                         ctx.beginPath();
                         path.forEach((index, i) => {
@@ -221,8 +219,8 @@
                         ctx.stroke();
                     });
 
-                    // 繪製關鍵點小圓圈
-                    ctx.fillStyle = '#ff006e';
+                    // C. 繪製關鍵點小圓圈
+                    ctx.fillStyle = '#ff006e'; // 亮粉色
                     for (const point of landmarks) {
                         ctx.beginPath();
                         ctx.arc(currentX + (1 - point.x) * imgWidth, currentY + point.y * imgHeight, 5, 0, Math.PI * 2);

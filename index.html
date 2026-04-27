@@ -30,6 +30,10 @@
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d');
     let video = document.createElement('video');
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+
     let handResults = null;
     let bubbles = []; // 儲存水泡物件
     let frameCount = 0;
@@ -107,12 +111,12 @@
                 audio: false 
             });
             video.srcObject = stream;
-            video.play();
+            await video.play();
             
             // 定期將影像送入偵測器
             async function detectionLoop() {
                 if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                    await hands.send({image: video});
+                    try { await hands.send({image: video}); } catch(e) {}
                 }
                 requestAnimationFrame(detectionLoop);
             }
@@ -172,10 +176,12 @@
         // 4. 繪製影像
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
             ctx.save();
-            // 因為要跟隨移動，如果想要更好的效果可以加上鏡像反轉
-            ctx.translate(canvas.width, 0);
+            // 先移動到目標座標
+            ctx.translate(currentX, currentY);
+            // 在方框內做鏡像翻轉
+            ctx.translate(imgWidth, 0);
             ctx.scale(-1, 1);
-            ctx.drawImage(video, canvas.width - currentX - imgWidth, currentY, imgWidth, imgHeight);
+            ctx.drawImage(video, 0, 0, imgWidth, imgHeight);
             ctx.restore();
 
             // 5. 繪製手部關鍵點連線

@@ -31,6 +31,41 @@
     const ctx = canvas.getContext('2d');
     let video = document.createElement('video');
     let handResults = null;
+    let bubbles = []; // 儲存水泡物件
+    let frameCount = 0;
+
+    /**
+     * 水泡類別
+     */
+    class Bubble {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.startY = y;
+            this.radius = Math.random() * 8 + 4;
+            this.speed = Math.random() * 2 + 1;
+            this.opacity = 0.8;
+            this.popDistance = Math.random() * 100 + 50; // 上升多少後破掉
+        }
+        update() {
+            this.y -= this.speed;
+            if (this.startY - this.y > this.popDistance) {
+                this.opacity -= 0.1; // 開始破掉（消失）
+            }
+        }
+        draw(ctx) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // 水泡反光效果
+            ctx.beginPath();
+            ctx.arc(this.x - this.radius/3, this.y - this.radius/3, this.radius/4, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity * 0.4})`;
+            ctx.fill();
+        }
+    }
 
     /**
      * 初始化畫布尺寸
@@ -91,6 +126,7 @@
      * 渲染函數
      */
     function render() {
+        frameCount++;
         // 1. 設定畫布背景顏色 (e7c6ff)
         ctx.fillStyle = '#e7c6ff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -117,11 +153,20 @@
                     [17, 18, 19, 20]    // 小拇指
                 ];
 
-                ctx.strokeStyle = '#7209b7'; // 線條顏色
+                ctx.strokeStyle = '#7209b7'; 
                 ctx.lineWidth = 4;
                 ctx.lineCap = 'round';
 
                 for (const landmarks of handResults.multiHandLandmarks) {
+                    // 在指尖產生水泡 (4, 8, 12, 16, 20)
+                    if (frameCount % 10 === 0) {
+                        [4, 8, 12, 16, 20].forEach(idx => {
+                            const p = landmarks[idx];
+                            bubbles.push(new Bubble(x + p.x * imgWidth, y + p.y * imgHeight));
+                        });
+                    }
+
+                    // 繪製骨架線條
                     connections.forEach(path => {
                         ctx.beginPath();
                         path.forEach((index, i) => {
@@ -133,9 +178,31 @@
                         });
                         ctx.stroke();
                     });
+
+                    // 繪製關鍵點小圓圈
+                    ctx.fillStyle = '#ff006e';
+                    for (const point of landmarks) {
+                        ctx.beginPath();
+                        ctx.arc(x + point.x * imgWidth, y + point.y * imgHeight, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
                 }
             }
         }
+
+        // 6. 更新並繪製水泡
+        for (let i = bubbles.length - 1; i >= 0; i--) {
+            bubbles[i].update();
+            bubbles[i].draw(ctx);
+            if (bubbles[i].opacity <= 0) bubbles.splice(i, 1);
+        }
+
+        // 7. 置中文字顯示
+        ctx.font = "bold 40px 'Microsoft JhengHei', Arial";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("414730100許O云", canvas.width / 2, canvas.height / 2);
 
         // 持續執行動畫
         requestAnimationFrame(render);
